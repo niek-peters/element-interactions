@@ -1,75 +1,72 @@
 type Position = [number, number];
 
-type DragSettings = { ghost?: boolean };
+type DragSettings = { ghost?: boolean; cursor?: string };
 type DragState = {
   startPos: Position;
   startMouse: Position;
   startTranslate: Position;
+  originalCursor: string;
+  originalHTMLCursor: string;
 };
+
+const html = document.querySelector("html")!;
 
 const draggables = new Map<HTMLElement, DragSettings>();
 const dragging = new Map<HTMLElement, DragState>();
 
 document.addEventListener("touchmove", moveTouch);
+document.addEventListener("mousemove", moveMouse);
+document.addEventListener("mouseup", endMouse);
 
-export function draggable(el: HTMLElement, settings: DragSettings) {
+export function draggable(el: HTMLElement, settings: DragSettings = {}) {
   if (draggables.has(el)) return;
 
   draggables.set(el, settings);
 
   el.classList.add("draggable");
-  el.draggable = true;
 
-  el.addEventListener("dragstart", startDrag);
-  el.addEventListener("mousedown", startMouse);
-  el.addEventListener("drag", moveMouse);
-  el.addEventListener("dragend", endMouse);
-  el.addEventListener("mouseup", endMouse);
+  const startMouseF = (e: MouseEvent) => startMouse(e, settings);
+
+  el.addEventListener("mousedown", startMouseF);
 
   el.addEventListener("touchstart", startTouch);
   el.addEventListener("touchend", endTouch);
   el.addEventListener("touchcancel", endTouch);
+
+  return () => {
+    if (!draggables.has(el)) return;
+
+    draggables.delete(el);
+
+    el.classList.remove("draggable");
+
+    el.removeEventListener("mousedown", startMouseF);
+
+    el.removeEventListener("touchstart", startTouch);
+    el.removeEventListener("touchend", endTouch);
+    el.removeEventListener("touchcancel", endTouch);
+  };
 }
 
-export function undraggable(el: HTMLElement) {
-  if (!draggables.has(el)) return;
-
-  draggables.delete(el);
-
-  el.classList.remove("draggable");
-  el.draggable = false;
-
-  el.removeEventListener("dragstart", startDrag);
-  el.removeEventListener("mousedown", startMouse);
-  el.removeEventListener("drag", moveMouse);
-  el.removeEventListener("dragend", endMouse);
-  el.removeEventListener("mouseup", endMouse);
-
-  el.removeEventListener("touchstart", startTouch);
-  el.removeEventListener("touchend", endTouch);
-  el.removeEventListener("touchcancel", endTouch);
-}
-
-function startDrag(e: DragEvent) {
-  console.log("startdrag");
-  const dataTransfer = e.dataTransfer!;
-  const canvas = document.createElement("canvas");
-  dataTransfer.effectAllowed = "move";
-  dataTransfer.setDragImage(canvas, 0, 0);
-  canvas.remove();
-}
-
-function startMouse(e: MouseEvent) {
-  console.log("startmouse");
+function startMouse(e: MouseEvent, settings: DragSettings) {
+  // console.log("startmouse");
   const el = e.currentTarget! as HTMLElement;
   const pos: Position = [e.clientX, e.clientY];
 
   start(el, pos);
+
+  const cursor =
+    "cursor" in settings && settings.cursor !== undefined
+      ? settings.cursor
+      : el.style.cursor;
+
+  html.style.cursor = cursor;
+  el.style.cursor = cursor;
 }
 
 function startTouch(e: TouchEvent) {
-  console.log("starttouch");
-  e.preventDefault();
+  // console.log("starttouch");
+  if (e.cancelable) e.preventDefault();
 
   const el = e.currentTarget! as HTMLElement;
   const current = e.targetTouches[0];
@@ -79,11 +76,10 @@ function startTouch(e: TouchEvent) {
 }
 
 function moveMouse(e: MouseEvent) {
-  // if (isTouch() || dragging.size === 0) return;
   if (dragging.size === 0) return;
-  console.log("movemouse");
+  // console.log("movemouse");
 
-  const el = e.currentTarget! as HTMLElement;
+  const el = dragging.keys().next().value!;
   const pos: Position = [e.clientX, e.clientY];
 
   if (pos[0] === 0 || pos[1] === 0) return;
@@ -93,7 +89,7 @@ function moveMouse(e: MouseEvent) {
 
 function moveTouch(e: TouchEvent) {
   if (dragging.size === 0) return;
-  console.log("movetouch");
+  // console.log("movetouch");
 
   for (const touch of e.changedTouches) {
     const el = touch.target as HTMLElement;
@@ -104,14 +100,18 @@ function moveTouch(e: TouchEvent) {
 }
 
 function endMouse(e: MouseEvent) {
-  console.log("endmouse", e instanceof DragEvent ? "drag" : "normal");
-  const el = e.currentTarget! as HTMLElement;
+  // console.log("endmouse");
+  const el = dragging.keys().next().value!;
+
+  const state = dragging.get(el)!;
+  html.style.cursor = state.originalHTMLCursor;
+  el.style.cursor = state.originalCursor;
 
   end(el);
 }
 
 function endTouch(e: TouchEvent) {
-  console.log("endtouch");
+  // console.log("endtouch");
   e.preventDefault();
   const el = e.currentTarget! as HTMLElement;
 
@@ -128,7 +128,25 @@ function start(el: HTMLElement, pos: Position) {
     startPos: [el.offsetLeft, el.offsetTop],
     startMouse: pos,
     startTranslate: startTranslate as [number, number],
+    originalCursor: el.style.cursor,
+    originalHTMLCursor: html.style.cursor,
   };
+
+  const zIndex = parseInt(el.style.zIndex || "0");
+  let found = false;
+
+  for (const el1 of draggables.keys()) {
+    if (el === el1) continue;
+
+    const zIndexOther = parseInt(el1.style.zIndex || "0");
+    if (zIndex + 1 === zIndexOther) {
+      el1.style.zIndex = zIndexOther - 1 + "";
+      found = true;
+    } else if (zIndex === zIndexOther) found = true;
+  }
+
+  if (found) el.style.zIndex = zIndex + 1 + "";
+
   dragging.set(el, state);
 }
 

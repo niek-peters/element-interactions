@@ -6,9 +6,9 @@
     <title>Document</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
+  <body style="position: relative">
     <p id="dragme" style="background-color: powderblue">hey</p>
-    <p id="dragme2" style="background-color: lightgreen">nay</p>
+    <p id="dragme2" style="background-color: lightgreen; cursor: grab">nay</p>
     <p>b</p>
 
     <script type="module">
@@ -18,7 +18,7 @@
       draggable(el);
 
       const el2 = document.getElementById("dragme2");
-      draggable(el2);
+      draggable(el2, { cursor: "grabbing" });
     </script>
   </body>
 </html>

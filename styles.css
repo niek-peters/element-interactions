@@ -1,4 +1,5 @@
 .draggable {
+  position: relative;
   user-select: none;
   touch-action: none;
 }
