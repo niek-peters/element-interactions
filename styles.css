@@ -1,3 +1,4 @@
 .draggable {
   user-select: none;
+  touch-action: none;
 }
