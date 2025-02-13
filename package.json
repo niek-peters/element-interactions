@@ -1,0 +1,14 @@
+{
+  "name": "@niek-peters/element-interactions",
+  "version": "1.0.8",
+  "description": "Add interactions to browser elements",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc"
+  },
+  "author": "Niek Peters",
+  "license": "MIT"
+}
