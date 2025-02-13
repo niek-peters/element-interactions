@@ -5,11 +5,10 @@ type DragState = {
   startPos: Position;
   startMouse: Position;
   startTranslate: Position;
-  originalCursor: string;
-  originalHTMLCursor: string;
 };
 
-const html = document.querySelector("html")!;
+const cursorStyle = document.createElement("style");
+cursorStyle.id = "cursor-style";
 
 const draggables = new Map<HTMLElement, DragSettings>();
 const dragging = new Map<HTMLElement, DragState>();
@@ -56,12 +55,12 @@ function startMouse(e: MouseEvent, settings: DragSettings) {
   start(el, pos);
 
   const cursor =
-    "cursor" in settings && settings.cursor !== undefined
+    ("cursor" in settings && settings.cursor !== undefined
       ? settings.cursor
-      : el.style.cursor;
+      : el.style.cursor) || "default";
 
-  html.style.cursor = cursor;
-  el.style.cursor = cursor;
+  cursorStyle.innerHTML = `*{cursor: ${cursor} !important;}`;
+  document.head.appendChild(cursorStyle);
 }
 
 function startTouch(e: TouchEvent) {
@@ -100,12 +99,12 @@ function moveTouch(e: TouchEvent) {
 }
 
 function endMouse(e: MouseEvent) {
+  if (dragging.size === 0) return;
   // console.log("endmouse");
+
   const el = dragging.keys().next().value!;
 
-  const state = dragging.get(el)!;
-  html.style.cursor = state.originalHTMLCursor;
-  el.style.cursor = state.originalCursor;
+  document.getElementById("cursor-style")!.remove();
 
   end(el);
 }
@@ -128,8 +127,6 @@ function start(el: HTMLElement, pos: Position) {
     startPos: [el.offsetLeft, el.offsetTop],
     startMouse: pos,
     startTranslate: startTranslate as [number, number],
-    originalCursor: el.style.cursor,
-    originalHTMLCursor: html.style.cursor,
   };
 
   const zIndex = parseInt(el.style.zIndex || "0");
