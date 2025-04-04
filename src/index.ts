@@ -25,10 +25,11 @@ export function draggable(el: HTMLElement, settings: DragSettings = {}) {
   el.classList.add("draggable");
 
   const startMouseF = (e: MouseEvent) => startMouse(e, settings);
+  const startTouchF = (e: TouchEvent) => startTouch(e, settings);
 
   el.addEventListener("mousedown", startMouseF);
 
-  el.addEventListener("touchstart", startTouch);
+  el.addEventListener("touchstart", startTouchF);
   el.addEventListener("touchend", endTouch);
   el.addEventListener("touchcancel", endTouch);
 
@@ -41,7 +42,7 @@ export function draggable(el: HTMLElement, settings: DragSettings = {}) {
 
     el.removeEventListener("mousedown", startMouseF);
 
-    el.removeEventListener("touchstart", startTouch);
+    el.removeEventListener("touchstart", startTouchF);
     el.removeEventListener("touchend", endTouch);
     el.removeEventListener("touchcancel", endTouch);
   };
@@ -52,18 +53,18 @@ function startMouse(e: MouseEvent, settings: DragSettings) {
   const el = e.currentTarget! as HTMLElement;
   const pos: Position = [e.clientX, e.clientY];
 
-  start(el, pos);
+  start(el, pos, settings);
 
   const cursor =
     ("cursor" in settings && settings.cursor !== undefined
       ? settings.cursor
-      : el.style.cursor) || "default";
+      : el.computedStyleMap().get("cursor")) || "default";
 
   cursorStyle.innerHTML = `*{cursor: ${cursor} !important;}`;
   document.head.appendChild(cursorStyle);
 }
 
-function startTouch(e: TouchEvent) {
+function startTouch(e: TouchEvent, settings: DragSettings) {
   // console.log("starttouch");
   if (e.cancelable) e.preventDefault();
 
@@ -71,7 +72,7 @@ function startTouch(e: TouchEvent) {
   const current = e.targetTouches[0];
   const pos: Position = [current.clientX, current.clientY];
 
-  start(el, pos);
+  start(el, pos, settings);
 }
 
 function moveMouse(e: MouseEvent) {
@@ -117,7 +118,7 @@ function endTouch(e: TouchEvent) {
   end(el);
 }
 
-function start(el: HTMLElement, pos: Position) {
+function start(el: HTMLElement, pos: Position, settings: DragSettings) {
   const startTranslate = el.style.translate
     .split(/\s+/)
     .map((part) => parseInt(part.replace("px", "") || "0"));
@@ -128,6 +129,22 @@ function start(el: HTMLElement, pos: Position) {
     startMouse: pos,
     startTranslate: startTranslate as [number, number],
   };
+
+  if (!("ghost" in settings) || settings.ghost === false) {
+    console.log([
+      el.getBoundingClientRect().left,
+      el.getBoundingClientRect().top,
+    ]);
+    el.style.position = "fixed";
+    console.log(state.startPos);
+    el.style.left = `0px`;
+    el.style.top = `0px`;
+    // console.log(el.offsetLeft, el.offsetTop);
+    // console.log(
+    //   state.startPos[0] - el.offsetLeft,
+    //   state.startPos[1] - el.offsetTop / 2
+    // );
+  }
 
   const zIndex = parseInt(el.style.zIndex || "0");
   let found = false;
