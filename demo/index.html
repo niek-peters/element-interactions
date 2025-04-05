@@ -45,6 +45,7 @@
         width: 50vw;
         height: 20vh;
         background-color: azure;
+        gap: 5px;
       "
     >
       <p id="item1" class="item">Item 1</p>
@@ -54,6 +55,8 @@
       <p id="item5" class="item">Item 5</p>
       <p id="item6" class="item">Item 6</p>
     </div>
+
+    <button id="reset">Remove draggability! >:)</button>
 
     <ul>
       <b>Todo</b>
@@ -92,10 +95,18 @@
         bounds: el2.parentElement,
       });
 
+      const gridDraggables = [];
       for (let i = 1; i <= 6; i++) {
         const item = document.getElementById("item" + i);
-        draggable(item, { bounds: item.parentElement });
+        gridDraggables.push(draggable(item, { bounds: item.parentElement }));
       }
+
+      const resetBtn = document.getElementById("reset");
+      resetBtn.addEventListener("click", () => {
+        for (const fn of gridDraggables) fn();
+
+        resetBtn.innerText = "GG";
+      });
     </script>
   </body>
 </html>
