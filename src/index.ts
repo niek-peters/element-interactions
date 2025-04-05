@@ -131,19 +131,19 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
   };
 
   if (!("ghost" in settings) || settings.ghost === false) {
-    console.log([
-      el.getBoundingClientRect().left,
-      el.getBoundingClientRect().top,
-    ]);
-    el.style.position = "fixed";
-    console.log(state.startPos);
-    el.style.left = `0px`;
-    el.style.top = `0px`;
-    // console.log(el.offsetLeft, el.offsetTop);
-    // console.log(
-    //   state.startPos[0] - el.offsetLeft,
-    //   state.startPos[1] - el.offsetTop / 2
-    // );
+    const styles = getComputedStyle(el);
+
+    if (styles.position !== "fixed" && styles.position !== "absolute") {
+      const marginLeft = parseInt(styles.marginLeft);
+      const marginTop = parseInt(styles.marginTop);
+      state.startTranslate[0] -= marginLeft;
+      state.startTranslate[1] -= marginTop;
+      el.style.position = "fixed";
+
+      el.style.translate = `${
+        state.startTranslate[0] + pos[0] - state.startMouse[0]
+      }px ${state.startTranslate[1] + pos[1] - state.startMouse[1]}px`;
+    }
   }
 
   const zIndex = parseInt(el.style.zIndex || "0");
