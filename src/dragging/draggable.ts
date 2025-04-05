@@ -1,6 +1,11 @@
 type Position = [number, number];
 
-type DragSettings = { ghost?: true; cursor?: string; bounds?: HTMLElement };
+type DragSettings = {
+  ghost?: true;
+  cursor?: string;
+  bounds?: HTMLElement;
+  unlockDimensions?: true;
+};
 type DragState = {
   startPos: Position;
   startMouse: Position;
@@ -169,11 +174,20 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
   const styles = getComputedStyle(el);
 
   if (styles.position !== "fixed" && styles.position !== "absolute") {
-    const marginLeft = parseInt(styles.marginLeft);
-    const marginTop = parseInt(styles.marginTop);
-    state.startTranslate[0] -= marginLeft;
-    state.startTranslate[1] -= marginTop;
+    const rect = el.getBoundingClientRect();
+    const parentRect = el.parentElement!.getBoundingClientRect();
+
+    state.startTranslate[0] -= parseInt(styles.marginLeft);
+    state.startTranslate[1] -= parseInt(styles.marginTop);
+
+    state.startTranslate[0] += rect.left - parentRect.left;
+    state.startTranslate[1] += rect.top - parentRect.top;
     el.style.position = "absolute";
+
+    if (!("unlockDimensions" in settings)) {
+      el.style.setProperty("width", rect.width + "px", "important");
+      el.style.setProperty("height", rect.height + "px", "important");
+    }
 
     el.style.translate = `${
       state.startTranslate[0] + pos[0] - state.startMouse[0]

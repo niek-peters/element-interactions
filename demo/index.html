@@ -7,12 +7,6 @@
     <link rel="stylesheet" href="/styles.css" />
 
     <style>
-      /* html,
-      body {
-        margin: 0;
-        padding: 0;
-      } */
-
       #dragme {
         background-color: powderblue;
         z-index: 10;
@@ -29,6 +23,11 @@
       #dragme2-ghost {
         opacity: 0.5;
       }
+
+      .item {
+        margin: 0;
+        background-color: bisque;
+      }
     </style>
   </head>
   <body style="position: relative">
@@ -39,12 +38,28 @@
       <p id="dragme2">nay</p>
     </div>
 
+    <div
+      style="
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        width: 50vw;
+        height: 20vh;
+        background-color: azure;
+      "
+    >
+      <p id="item1" class="item">Item 1</p>
+      <p id="item2" class="item">Item 2</p>
+      <p id="item3" class="item">Item 3</p>
+      <p id="item4" class="item">Item 4</p>
+      <p id="item5" class="item">Item 5</p>
+      <p id="item6" class="item">Item 6</p>
+    </div>
+
     <ul>
       <b>Todo</b>
       <li>
         Add drag groups (where you can apply rules for a set of draggables)
       </li>
-      <li>Add drag boundaries</li>
       <li>Add dropzones</li>
       <li>
         Add onDrop handler (so you can make elements go back to where they came
@@ -65,7 +80,7 @@
       import { draggable } from "/build/index.js";
 
       const el = document.getElementById("dragme");
-      draggable(el, { bounds: document.body });
+      draggable(el, { bounds: document.body.parentElement });
 
       const el3 = document.getElementById("dragme3");
       draggable(el3);
@@ -76,6 +91,11 @@
         ghost: true,
         bounds: el2.parentElement,
       });
+
+      for (let i = 1; i <= 6; i++) {
+        const item = document.getElementById("item" + i);
+        draggable(item, { bounds: item.parentElement });
+      }
     </script>
   </body>
 </html>
