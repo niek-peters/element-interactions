@@ -15,17 +15,23 @@
 
       #dragme {
         background-color: powderblue;
+        z-index: 10;
       }
 
-      #dragme2 {
+      #dragme2,
+      #dragme2-ghost {
         background-color: lightgreen;
         cursor: grab;
+      }
+
+      #dragme2-ghost {
+        opacity: 0.5;
       }
     </style>
   </head>
   <body style="position: relative">
     <p id="dragme">hey</p>
-    <p id="dragme3" style="position: absolute; left: 20px; top: 220px">hey</p>
+    <p id="dragme3" style="position: fixed; left: 20px; top: 220px">hey</p>
     <p id="dragme2">nay</p>
 
     <ul>
@@ -51,9 +57,7 @@
 
     <ul>
       <b>Keep in mind!</b>
-      <li>
-        Only O(1) (on the number of draggables) operations should be allowed
-      </li>
+      <li>Only O(1) operations should be allowed for mouse/touchmove events</li>
     </ul>
 
     <script type="module">
