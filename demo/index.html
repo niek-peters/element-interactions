@@ -27,7 +27,34 @@
     <p id="dragme">hey</p>
     <p id="dragme3" style="position: absolute; left: 20px; top: 220px">hey</p>
     <p id="dragme2">nay</p>
-    <p>b</p>
+
+    <ul>
+      <b>Todo</b>
+      <li>
+        Add drag groups (where you can apply rules for a set of draggables)
+      </li>
+      <li>Add drag boundaries</li>
+      <li>
+        Fix weird z-index stuff (dragging an element should not change order of
+        other elements)
+      </li>
+      <li>Add dropzones</li>
+      <li>
+        Add onDrop handler (so you can make elements go back to where they came
+        from)
+      </li>
+      <li>
+        Add dragMode: snap, for only changing element position when dragging
+        over a certain dropzone
+      </li>
+    </ul>
+
+    <ul>
+      <b>Keep in mind!</b>
+      <li>
+        Only O(1) (on the number of draggables) operations should be allowed
+      </li>
+    </ul>
 
     <script type="module">
       import { draggable } from "/build/index.js";
@@ -39,7 +66,11 @@
       draggable(el3);
 
       const el2 = document.getElementById("dragme2");
-      draggable(el2, { cursor: "grabbing", ghost: true });
+      draggable(el2, {
+        cursor: "grabbing",
+        ghost: true,
+        bounds: document.body,
+      });
     </script>
   </body>
 </html>
