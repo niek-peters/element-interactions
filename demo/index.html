@@ -16,12 +16,14 @@
       #dragme {
         background-color: powderblue;
         z-index: 10;
+        width: 20vw;
       }
 
       #dragme2,
       #dragme2-ghost {
         background-color: lightgreen;
         cursor: grab;
+        width: 20vw;
       }
 
       #dragme2-ghost {
@@ -32,7 +34,10 @@
   <body style="position: relative">
     <p id="dragme">hey</p>
     <p id="dragme3" style="position: fixed; left: 20px; top: 220px">hey</p>
-    <p id="dragme2">nay</p>
+
+    <div style="width: 50vw; height: 10vh; background-color: powderblue">
+      <p id="dragme2">nay</p>
+    </div>
 
     <ul>
       <b>Todo</b>
@@ -40,10 +45,6 @@
         Add drag groups (where you can apply rules for a set of draggables)
       </li>
       <li>Add drag boundaries</li>
-      <li>
-        Fix weird z-index stuff (dragging an element should not change order of
-        other elements)
-      </li>
       <li>Add dropzones</li>
       <li>
         Add onDrop handler (so you can make elements go back to where they came
@@ -64,7 +65,7 @@
       import { draggable } from "/build/index.js";
 
       const el = document.getElementById("dragme");
-      draggable(el);
+      draggable(el, { bounds: document.body });
 
       const el3 = document.getElementById("dragme3");
       draggable(el3);
@@ -73,7 +74,7 @@
       draggable(el2, {
         cursor: "grabbing",
         ghost: true,
-        bounds: document.body,
+        bounds: el2.parentElement,
       });
     </script>
   </body>

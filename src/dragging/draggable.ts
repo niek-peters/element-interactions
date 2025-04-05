@@ -5,6 +5,8 @@ type DragState = {
   startPos: Position;
   startMouse: Position;
   startTranslate: Position;
+  /** Left, Top, Right, Bottom */
+  translationBounds?: [number, number, number, number];
 };
 
 const cursorStyle = document.createElement("style");
@@ -138,7 +140,10 @@ export function endTouch(e: TouchEvent) {
   if (singleDragging[0] === el) singleDragging = undefined;
 
   dragging.delete(el);
-  if (dragging.size !== 0) singleDragging = dragging.entries().next().value;
+  if (dragging.size !== 0) {
+    const single = dragging.entries().next().value!;
+    singleDragging = [single[0], single[1]];
+  }
   end(el);
 }
 
@@ -173,6 +178,29 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
     el.style.translate = `${
       state.startTranslate[0] + pos[0] - state.startMouse[0]
     }px ${state.startTranslate[1] + pos[1] - state.startMouse[1]}px`;
+  }
+
+  if ("bounds" in settings && settings.bounds !== undefined) {
+    const rect = el.getBoundingClientRect();
+    const boundsRect = settings.bounds.getBoundingClientRect();
+    state.translationBounds = [
+      boundsRect.left -
+        rect.left +
+        // parseInt(styles.marginLeft) +
+        state.startTranslate[0],
+      boundsRect.top -
+        rect.top +
+        // parseInt(styles.marginTop) +
+        state.startTranslate[1],
+      boundsRect.right -
+        rect.right +
+        // parseInt(styles.marginRight) +
+        state.startTranslate[0],
+      boundsRect.bottom -
+        rect.bottom +
+        // parseInt(styles.marginBottom) +
+        state.startTranslate[1],
+    ];
   }
 
   if (order.length >= 2 && order[order.length - 1][0] !== el) {
@@ -222,9 +250,19 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
 }
 
 function move(el: HTMLElement, pos: Position, state: DragState) {
-  el.style.translate = `${
-    state.startTranslate[0] + pos[0] - state.startMouse[0]
-  }px ${state.startTranslate[1] + pos[1] - state.startMouse[1]}px`;
+  let left = state.startTranslate[0] + pos[0] - state.startMouse[0];
+  let top = state.startTranslate[1] + pos[1] - state.startMouse[1];
+
+  if (state.translationBounds !== undefined) {
+    if (left < state.translationBounds[0]) left = state.translationBounds[0];
+    else if (left > state.translationBounds[2])
+      left = state.translationBounds[2];
+
+    if (top < state.translationBounds[1]) top = state.translationBounds[1];
+    else if (top > state.translationBounds[3]) top = state.translationBounds[3];
+  }
+
+  el.style.translate = `${left}px ${top}px`;
 }
 
 function end(el: HTMLElement) {
