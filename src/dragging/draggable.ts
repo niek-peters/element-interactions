@@ -1,3 +1,5 @@
+import { onDrag } from "./dropzone.js";
+
 type Position = [number, number];
 
 type DragSettings = {
@@ -16,8 +18,8 @@ type DragState = {
 
 const cursorStyle = document.createElement("style");
 
-const draggables = new Map<HTMLElement, DragSettings>();
-const dragging = new Map<HTMLElement, DragState>();
+export const draggables = new Map<HTMLElement, DragSettings>();
+export const dragging = new Map<HTMLElement, DragState>();
 let singleDragging: [HTMLElement, DragState] | undefined;
 
 const ghosts = new Map<HTMLElement, HTMLElement>();
@@ -72,8 +74,7 @@ function startMouse(e: MouseEvent, settings: DragSettings) {
 
   const pos: Position = [e.clientX, e.clientY];
 
-  const state = start(el, pos, settings);
-  singleDragging = [el, state];
+  start(el, pos, settings);
 
   const cursor =
     ("cursor" in settings && settings.cursor !== undefined
@@ -82,6 +83,8 @@ function startMouse(e: MouseEvent, settings: DragSettings) {
 
   cursorStyle.innerHTML = `*{cursor: ${cursor} !important;}`;
   document.head.appendChild(cursorStyle);
+
+  onDrag(document.elementsFromPoint(pos[0], pos[1]) as HTMLElement[]);
 }
 
 function startTouch(e: TouchEvent, settings: DragSettings) {
@@ -94,9 +97,9 @@ function startTouch(e: TouchEvent, settings: DragSettings) {
   const current = e.targetTouches[0];
   const pos: Position = [current.clientX, current.clientY];
 
-  const state = start(el, pos, settings);
-  dragging.set(el, state);
-  singleDragging = [el, state];
+  start(el, pos, settings);
+
+  onDrag(document.elementsFromPoint(pos[0], pos[1]) as HTMLElement[]);
 }
 
 export function moveMouse(e: MouseEvent) {
@@ -144,7 +147,6 @@ export function endTouch(e: TouchEvent) {
 
   if (singleDragging[0] === el) singleDragging = undefined;
 
-  dragging.delete(el);
   if (dragging.size !== 0) {
     const single = dragging.entries().next().value!;
     singleDragging = [single[0], single[1]];
@@ -260,7 +262,8 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
     );
   }
 
-  return state;
+  dragging.set(el, state);
+  singleDragging = [el, state];
 }
 
 function move(el: HTMLElement, pos: Position, state: DragState) {
@@ -280,6 +283,11 @@ function move(el: HTMLElement, pos: Position, state: DragState) {
 }
 
 function end(el: HTMLElement) {
+  dragging.delete(el);
   const ghost = ghosts.get(el);
   if (ghost) ghost.remove();
+}
+
+export function isDragging() {
+  return singleDragging !== undefined;
 }

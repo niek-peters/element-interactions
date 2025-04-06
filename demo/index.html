@@ -32,7 +32,7 @@
   </head>
   <body style="position: relative">
     <p id="dragme">hey</p>
-    <p id="dragme3" style="position: fixed; left: 20px; top: 220px">hey</p>
+    <p id="dragme3" style="position: fixed; left: 20px; top: 420px">hey</p>
 
     <div style="width: 50vw; height: 10vh; background-color: powderblue">
       <p id="dragme2">nay</p>
@@ -58,6 +58,21 @@
 
     <button id="reset">Remove draggability! >:)</button>
 
+    <div style="display: flex">
+      <div
+        id="drop1"
+        style="width: 30vw; height: 20vh; background-color: cornsilk"
+      >
+        drop moment
+      </div>
+      <div
+        id="drop2"
+        style="width: 30vw; height: 20vh; background-color: darkkhaki"
+      >
+        drop moment 2
+      </div>
+    </div>
+
     <ul>
       <b>Todo</b>
       <li>
@@ -80,7 +95,7 @@
     </ul>
 
     <script type="module">
-      import { draggable } from "/build/index.js";
+      import { draggable, dropzone } from "/build/index.js";
 
       const el = document.getElementById("dragme");
       draggable(el, { bounds: document.body.parentElement });
@@ -94,6 +109,12 @@
         ghost: true,
         bounds: el2.parentElement,
       });
+
+      const drop1 = document.getElementById("drop1");
+      dropzone(drop1);
+
+      const drop2 = document.getElementById("drop2");
+      dropzone(drop2);
 
       const gridDraggables = [];
       for (let i = 1; i <= 6; i++) {
