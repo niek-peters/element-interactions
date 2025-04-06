@@ -1,4 +1,12 @@
 import { onDrag } from "./dropzone.js";
+import {
+  scrollDown,
+  scrollLeft,
+  scrollRight,
+  scrollUp,
+  stopHorizontal,
+  stopVertical,
+} from "./scrolling.js";
 
 type Position = [number, number];
 
@@ -20,12 +28,15 @@ const cursorStyle = document.createElement("style");
 
 export const draggables = new Map<HTMLElement, DragSettings>();
 export const dragging = new Map<HTMLElement, DragState>();
-let singleDragging: [HTMLElement, DragState] | undefined;
+let singleDragging: [HTMLElement, DragState, DragSettings] | undefined;
 
 const ghosts = new Map<HTMLElement, HTMLElement>();
 
 const order: [HTMLElement, number][] = [];
 let orderBase = 0;
+
+/** Distance (in pixels) from bounds edge to start scrolling */
+const SCROLL_RANGE = 50;
 
 export function draggable(el: HTMLElement, settings: DragSettings = {}) {
   if (draggables.has(el)) return;
@@ -106,13 +117,11 @@ export function moveMouse(e: MouseEvent) {
   if (singleDragging === undefined) return;
   // console.log("movemouse");
 
-  const el = singleDragging[0];
-  const state = singleDragging[1];
   const pos: Position = [e.clientX, e.clientY];
 
   if (pos[0] === 0 || pos[1] === 0) return;
 
-  move(el, pos, state);
+  move(singleDragging[0], pos, singleDragging[1], singleDragging[2]);
 }
 
 export function moveTouch(e: TouchEvent) {
@@ -124,8 +133,9 @@ export function moveTouch(e: TouchEvent) {
     if (!draggables.get(el)) return;
 
     const pos: Position = [touch.clientX, touch.clientY];
-    if (dragging.size === 1) move(el, pos, singleDragging[1]);
-    else move(el, pos, dragging.get(el)!);
+    if (dragging.size === 1)
+      move(el, pos, singleDragging[1], singleDragging[2]);
+    else move(el, pos, dragging.get(el)!, draggables.get(el)!);
   }
 }
 
@@ -149,7 +159,7 @@ export function endTouch(e: TouchEvent) {
 
   if (dragging.size !== 0) {
     const single = dragging.entries().next().value!;
-    singleDragging = [single[0], single[1]];
+    singleDragging = [single[0], single[1], draggables.get(single[0])!];
   }
   end(el);
 }
@@ -263,13 +273,73 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
   }
 
   dragging.set(el, state);
-  singleDragging = [el, state];
+  singleDragging = [el, state, settings];
+
+  move(el, pos, state, settings);
 }
 
-function move(el: HTMLElement, pos: Position, state: DragState) {
+function move(
+  el: HTMLElement,
+  pos: Position,
+  state: DragState,
+  settings: DragSettings
+) {
+  const styles = getComputedStyle(el);
+
   let left = state.startTranslate[0] + pos[0] - state.startMouse[0];
   let top = state.startTranslate[1] + pos[1] - state.startMouse[1];
 
+  boundedMove(el, left, top, state);
+
+  // autoscroll
+  const scrollBounds =
+    "bounds" in settings && settings.bounds !== undefined
+      ? settings.bounds
+      : document.body.parentElement!;
+  const boundsRect = scrollBounds.getBoundingClientRect();
+  const fixed = styles.position === "fixed";
+  // can scroll vertically
+  if (scrollBounds.scrollHeight > scrollBounds.clientHeight) {
+    // can scroll up
+    if (
+      scrollBounds.scrollTop > 0 &&
+      pos[1] - Math.max(0, boundsRect.top) < SCROLL_RANGE
+    )
+      scrollUp(scrollBounds);
+    // can scroll down
+    else if (
+      Math.ceil(scrollBounds.scrollTop) <
+        scrollBounds.scrollHeight - scrollBounds.clientHeight &&
+      Math.min(window.innerHeight, boundsRect.bottom) - pos[1] < SCROLL_RANGE
+    )
+      scrollDown(scrollBounds);
+    else stopVertical(scrollBounds);
+  }
+  // can scroll horizontally
+  if (scrollBounds.scrollWidth > scrollBounds.clientWidth) {
+    // can scroll left
+    if (
+      scrollBounds.scrollLeft > 0 &&
+      pos[0] - Math.max(0, boundsRect.left) < SCROLL_RANGE
+    )
+      scrollLeft(scrollBounds);
+    // can scroll right
+    if (
+      Math.ceil(scrollBounds.scrollLeft) <
+        scrollBounds.scrollWidth - scrollBounds.clientWidth &&
+      Math.min(window.innerWidth, boundsRect.right) - pos[0] < SCROLL_RANGE
+    ) 
+      scrollRight(scrollBounds);
+  }
+}
+
+function boundedMove(
+  el: HTMLElement,
+  left: number,
+  top: number,
+  state: DragState
+) {
+  // bounds
   if (state.translationBounds !== undefined) {
     if (left < state.translationBounds[0]) left = state.translationBounds[0];
     else if (left > state.translationBounds[2])
@@ -278,11 +348,33 @@ function move(el: HTMLElement, pos: Position, state: DragState) {
     if (top < state.translationBounds[1]) top = state.translationBounds[1];
     else if (top > state.translationBounds[3]) top = state.translationBounds[3];
   }
-
   el.style.translate = `${left}px ${top}px`;
 }
 
+// function boundedMoveBy(
+//   el: HTMLElement,
+//   amount: Position,
+//   state: DragState,
+//   styles: CSSStyleDeclaration
+// ) {
+//   console.log("juh", amount);
+//   const parts = styles.translate.split(/\s+/);
+//   const left = parseInt(parts[0]) + amount[0];
+//   const top = parseInt(parts[1]) + amount[1];
+
+//   boundedMove(el, left, top, state);
+// }
+
 function end(el: HTMLElement) {
+  const settings = draggables.get(el)!;
+  const scrollBounds =
+    "bounds" in settings && settings.bounds !== undefined
+      ? settings.bounds
+      : document.body.parentElement!;
+
+  stopVertical(scrollBounds);
+  stopHorizontal(scrollBounds);
+
   dragging.delete(el);
   const ghost = ghosts.get(el);
   if (ghost) ghost.remove();

@@ -32,7 +32,7 @@
   </head>
   <body style="position: relative">
     <p id="dragme">hey</p>
-    <p id="dragme3" style="position: fixed; left: 20px; top: 420px">hey</p>
+    <p id="dragme3" style="position: absolute; left: 20px; top: 420px">hey</p>
 
     <div style="width: 50vw; height: 10vh; background-color: powderblue">
       <p id="dragme2">nay</p>
@@ -76,13 +76,25 @@
     <ul>
       <b>Todo</b>
       <li>
+        Every draggable needs to change to position: fixed on drag start (and
+        change back on drop)
+      </li>
+      <li>Add autoscroll</li>
+      <li>
         Add drag groups (where you can apply rules for a set of draggables)
       </li>
       <li>Add dropzones</li>
+      <li>DropZone types: sink, slot, stack (w/ max height)</li>
+      <li>
+        DropZone dropPosition: undefined, fn(stackHeight) -> Position (relative)
+      </li>
       <li>
         Add onDrop handler (so you can make elements go back to where they came
         from)
       </li>
+      <li>Add DragLists</li>
+      <li>Add dropGhost</li>
+      <li>Make ghost, dragging and dropGhost individually togglable</li>
       <li>
         Add dragMode: snap, for only changing element position when dragging
         over a certain dropzone
@@ -93,6 +105,8 @@
       <b>Keep in mind!</b>
       <li>Only O(1) operations should be allowed for mouse/touchmove events</li>
     </ul>
+
+    <div style="height: 200vh">let's make the page super long lmao</div>
 
     <script type="module">
       import { draggable, dropzone } from "/build/index.js";
