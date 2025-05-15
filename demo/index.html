@@ -85,13 +85,18 @@
     <ul>
       <b>Todo</b>
       <li>
-        Figure out how to do scrolling (Either: Every draggable needs to change
-        to position: fixed on drag start (and change back on drop, figure out
-        how to trigger dragOver, figure out translations), or dragging should
-        trigger touch and mouse move events somehow). Also test scrolling inside
-        containers
+        To fix scrolling: save the last mouseMove/touchMove mouse/touch
+        positions + the scroll position of the scrollContainer during the last
+        event (per dragging element). Then, on scroll for the scrollContainer,
+        calculate the difference between the initial scroll position and the
+        current, and run the move function with the mouse/touch positions + the
+        scroll position difference
       </li>
       <li>Figure out how to do scrolling for multiple dragged items at once</li>
+      <li>
+        Burning suspicion that when dragging two draggables over each other on
+        dropzones it gets confused what draggable to use
+      </li>
       <li>
         Add drag groups (where you can apply rules for a set of draggables)
       </li>
