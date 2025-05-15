@@ -26,7 +26,7 @@ export function onDrop(draggable: HTMLElement) {
   //   draggable.style.position = "absolute";
   // }
 
-  dragging.delete(draggable);
+  // dragging.delete(draggable);
 
   const dropZone = over.get(draggable);
   if (dropZone === undefined) return;

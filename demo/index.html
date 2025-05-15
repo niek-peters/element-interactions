@@ -92,6 +92,15 @@
         current, and run the move function with the mouse/touch positions + the
         scroll position difference
       </li>
+      <li>
+        Now to actually fix scrolling, make sure to either update translation
+        when the mouse moves fr fr again, OR change to making all mentions of
+        'pos' be relative to the scrollContainer instead of the window
+      </li>
+      <li>
+        Might be good to enable seperate configuration for scrollContainer and
+        resize/boundsContainer
+      </li>
       <li>Figure out how to do scrolling for multiple dragged items at once</li>
       <li>
         Burning suspicion that when dragging two draggables over each other on
@@ -109,7 +118,11 @@
         Add onDrop handler (so you can make elements go back to where they came
         from)
       </li>
-      <li>Add DragLists</li>
+      <li>
+        Add DragLists (with handlers for onMove and onDrop, option for dropZones
+        between items or on items, and shift direction)
+      </li>
+      <li>Add DragGrids (with same handlers)</li>
       <li>Add dropGhost</li>
       <li>Make ghost, dragging and dropGhost individually togglable</li>
       <li>

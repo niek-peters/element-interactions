@@ -35,6 +35,12 @@ let singleDragging: [HTMLElement, DragState, DragSettings] | undefined;
 
 const ghosts = new Map<HTMLElement, HTMLElement>();
 
+/** container -> [draggingElement -> last known pointer position (from last move), scroll position during last move] */
+const scrollContainerDragging = new Map<
+  HTMLElement,
+  [Map<HTMLElement, Position>, Position]
+>();
+
 const order: [HTMLElement, number][] = [];
 let orderBase = 0;
 
@@ -52,6 +58,38 @@ export function draggable(el: HTMLElement, settings: DragSettingsInput = {}) {
   const finalSettings: DragSettings = { ...settings, container };
 
   draggables.set(el, finalSettings);
+  if (!scrollContainerDragging.has(container)) {
+    scrollContainerDragging.set(container, [
+      new Map<HTMLElement, Position>(),
+      [0, 0],
+    ]);
+    const scrollContainer =
+      container === document.body.parentElement ? window : container;
+    scrollContainer.addEventListener("scroll", () => {
+      const draggingElements = scrollContainerDragging.get(container);
+      if (draggingElements === undefined || draggingElements[0].size === 0)
+        return;
+
+      const deltaX =
+        ("scrollLeft" in scrollContainer
+          ? scrollContainer.scrollLeft
+          : scrollContainer.scrollX) - draggingElements[1][0];
+      const deltaY =
+        ("scrollTop" in scrollContainer
+          ? scrollContainer.scrollTop
+          : scrollContainer.scrollY) - draggingElements[1][1];
+      console.log("deltas", deltaX, deltaY);
+
+      for (const [draggingElement, lastPos] of draggingElements[0]) {
+        console.log(draggingElement, lastPos);
+        const state = dragging.get(draggingElement)!;
+
+        const pos: Position = [lastPos[0] + deltaX, lastPos[1] + deltaY];
+
+        move(draggingElement, pos, state, finalSettings);
+      }
+    });
+  }
 
   el.classList.add("draggable");
 
@@ -347,6 +385,12 @@ function move(
   state: DragState,
   settings: DragSettings
 ) {
+  const others = scrollContainerDragging.get(settings.container)!;
+  others[0].set(el, pos);
+  others[1] = [settings.container.scrollLeft, settings.container.scrollTop];
+
+  console.log(pos);
+
   const styles = getComputedStyle(el);
 
   let left = state.startTranslate[0] + pos[0] - state.startMouse[0];
@@ -432,9 +476,12 @@ function end(el: HTMLElement) {
   stopVertical(scrollBounds);
   stopHorizontal(scrollBounds);
 
-  // dragging.delete(el);
+  dragging.delete(el);
   const ghost = ghosts.get(el);
   if (ghost) ghost.remove();
+
+  const others = scrollContainerDragging.get(settings.container);
+  if (others !== undefined) others[0].delete(el);
 }
 
 export function isDragging() {
