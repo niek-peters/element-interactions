@@ -10,11 +10,13 @@ import {
 
 type Position = [number, number];
 
+type DragSettingsInput = Omit<DragSettings, "container">;
 type DragSettings = {
   ghost?: true;
   cursor?: string;
   bounds?: HTMLElement;
   unlockDimensions?: true;
+  container: HTMLElement;
 };
 type DragState = {
   startPos: Position;
@@ -39,10 +41,17 @@ let orderBase = 0;
 /** Distance (in pixels) from bounds edge to start scrolling */
 const SCROLL_RANGE = 50;
 
-export function draggable(el: HTMLElement, settings: DragSettings = {}) {
+export function draggable(el: HTMLElement, settings: DragSettingsInput = {}) {
   if (draggables.has(el)) return;
 
-  draggables.set(el, settings);
+  const container =
+    "bounds" in settings && settings.bounds !== undefined
+      ? settings.bounds
+      : document.body.parentElement!;
+
+  const finalSettings: DragSettings = { ...settings, container };
+
+  draggables.set(el, finalSettings);
 
   el.classList.add("draggable");
 
@@ -61,34 +70,38 @@ export function draggable(el: HTMLElement, settings: DragSettings = {}) {
 
   orderBase = order[order.length - 1][1];
 
-  const startMouseF = (e: MouseEvent) => startMouse(e, settings);
-  const startTouchF = (e: TouchEvent) => startTouch(e, settings);
+  const startMouseF = (e: MouseEvent) => startMouse(e, finalSettings);
+  const startTouchF = (e: TouchEvent) => startTouch(e, finalSettings);
 
   el.addEventListener("mousedown", startMouseF);
   el.addEventListener("touchstart", startTouchF);
 
-  const resizeBounds =
-    "bounds" in settings && settings.bounds !== undefined
-      ? settings.bounds
-      : document.body.parentElement!;
   const observer = new ResizeObserver(() => {
     if (!(el.style.position === "absolute" || el.style.position === "fixed"))
       return;
 
     const rect = el.getBoundingClientRect();
-    const boundsRect = resizeBounds.getBoundingClientRect();
+    const boundsRect = container.getBoundingClientRect();
 
     const translate = el.style.translate
       .split(/\s+/)
       .map((part) => parseInt(part.replace("px", "") || "0"));
     while (translate.length < 2) translate.push(0);
 
-    const rightOvershoot = rect.right - boundsRect.right;
-    let leftOvershoot = boundsRect.left - rect.left;
+    const rightOvershoot =
+      rect.right -
+      boundsRect.left -
+      container.scrollWidth +
+      container.scrollLeft;
+    let leftOvershoot = boundsRect.left - rect.left - container.scrollLeft;
     if (rightOvershoot + leftOvershoot > 0) leftOvershoot = 0;
 
-    const bottomOvershoot = rect.bottom - boundsRect.bottom;
-    let topOvershoot = boundsRect.top - rect.top;
+    const bottomOvershoot =
+      rect.bottom -
+      boundsRect.top -
+      container.scrollHeight +
+      container.scrollTop;
+    let topOvershoot = boundsRect.top - rect.top - container.scrollTop;
     if (bottomOvershoot + topOvershoot > 0) topOvershoot = 0;
 
     translate[0] -= Math.max(0, rightOvershoot);
@@ -98,7 +111,7 @@ export function draggable(el: HTMLElement, settings: DragSettings = {}) {
 
     el.style.translate = `${translate[0]}px ${translate[1]}px`;
   });
-  observer.observe(resizeBounds);
+  observer.observe(container);
 
   return () => {
     if (!draggables.has(el)) return;
@@ -110,7 +123,7 @@ export function draggable(el: HTMLElement, settings: DragSettings = {}) {
     el.removeEventListener("mousedown", startMouseF);
     el.removeEventListener("touchstart", startTouchF);
 
-    observer.unobserve(resizeBounds);
+    observer.unobserve(container);
   };
 }
 
@@ -255,19 +268,27 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
       boundsRect.left -
         rect.left +
         // parseInt(styles.marginLeft) +
-        state.startTranslate[0],
+        state.startTranslate[0] -
+        settings.bounds.scrollLeft,
       boundsRect.top -
         rect.top +
         // parseInt(styles.marginTop) +
-        state.startTranslate[1],
+        state.startTranslate[1] -
+        settings.bounds.scrollTop,
       boundsRect.right -
         rect.right +
         // parseInt(styles.marginRight) +
-        state.startTranslate[0],
+        state.startTranslate[0] +
+        (settings.bounds.scrollWidth -
+          settings.bounds.offsetWidth -
+          settings.bounds.scrollLeft),
       boundsRect.bottom -
         rect.bottom +
         // parseInt(styles.marginBottom) +
-        state.startTranslate[1],
+        state.startTranslate[1] +
+        (settings.bounds.scrollHeight -
+          settings.bounds.offsetHeight -
+          settings.bounds.scrollTop),
     ];
   }
 
@@ -334,44 +355,40 @@ function move(
   boundedMove(el, left, top, state);
 
   // autoscroll
-  const scrollBounds =
-    "bounds" in settings && settings.bounds !== undefined
-      ? settings.bounds
-      : document.body.parentElement!;
-  const boundsRect = scrollBounds.getBoundingClientRect();
+  const boundsRect = settings.container.getBoundingClientRect();
   const fixed = styles.position === "fixed";
   // can scroll vertically
-  if (scrollBounds.scrollHeight > scrollBounds.clientHeight) {
+  if (settings.container.scrollHeight > settings.container.clientHeight) {
     // can scroll up
     if (
-      scrollBounds.scrollTop > 0 &&
+      settings.container.scrollTop > 0 &&
       pos[1] - Math.max(0, boundsRect.top) < SCROLL_RANGE
     )
-      scrollUp(scrollBounds);
+      scrollUp(settings.container);
     // can scroll down
     else if (
-      Math.ceil(scrollBounds.scrollTop) <
-        scrollBounds.scrollHeight - scrollBounds.clientHeight &&
+      Math.ceil(settings.container.scrollTop) <
+        settings.container.scrollHeight - settings.container.clientHeight &&
       Math.min(window.innerHeight, boundsRect.bottom) - pos[1] < SCROLL_RANGE
     )
-      scrollDown(scrollBounds);
-    else stopVertical(scrollBounds);
+      scrollDown(settings.container);
+    else stopVertical(settings.container);
   }
   // can scroll horizontally
-  if (scrollBounds.scrollWidth > scrollBounds.clientWidth) {
+  if (settings.container.scrollWidth > settings.container.clientWidth) {
     // can scroll left
     if (
-      scrollBounds.scrollLeft > 0 &&
+      settings.container.scrollLeft > 0 &&
       pos[0] - Math.max(0, boundsRect.left) < SCROLL_RANGE
     )
-      scrollLeft(scrollBounds);
+      scrollLeft(settings.container);
     // can scroll right
     if (
-      Math.ceil(scrollBounds.scrollLeft) <
-        scrollBounds.scrollWidth - scrollBounds.clientWidth &&
+      Math.ceil(settings.container.scrollLeft) <
+        settings.container.scrollWidth - settings.container.clientWidth &&
       Math.min(window.innerWidth, boundsRect.right) - pos[0] < SCROLL_RANGE
     )
-      scrollRight(scrollBounds);
+      scrollRight(settings.container);
   }
 }
 
@@ -423,34 +440,3 @@ function end(el: HTMLElement) {
 export function isDragging() {
   return singleDragging !== undefined;
 }
-
-// window.addEventListener("resize", () => {
-//   for (const [el, settings] of draggables) {
-//     if (!(el.style.position === "absolute" || el.style.position === "fixed"))
-//       continue;
-//     if (!("bounds" in settings) || settings.bounds === undefined) continue;
-
-//     const rect = el.getBoundingClientRect();
-//     const boundsRect = settings.bounds.getBoundingClientRect();
-
-//     const translate = el.style.translate
-//       .split(/\s+/)
-//       .map((part) => parseInt(part.replace("px", "") || "0"));
-//     while (translate.length < 2) translate.push(0);
-
-//     const rightOvershoot = rect.right - boundsRect.right;
-//     let leftOvershoot = boundsRect.left - rect.left;
-//     if (rightOvershoot + leftOvershoot > 0) leftOvershoot = 0;
-
-//     const bottomOvershoot = rect.bottom - boundsRect.bottom;
-//     let topOvershoot = boundsRect.top - rect.top;
-//     if (bottomOvershoot + topOvershoot > 0) topOvershoot = 0;
-
-//     translate[0] -= Math.max(0, rightOvershoot);
-//     translate[0] += Math.max(0, leftOvershoot);
-//     translate[1] -= Math.max(0, bottomOvershoot);
-//     translate[1] += Math.max(0, topOvershoot);
-
-//     el.style.translate = `${translate[0]}px ${translate[1]}px`;
-//   }
-// });

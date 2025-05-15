@@ -28,6 +28,7 @@
         margin: 0;
         background-color: bisque;
         height: 20vh;
+        width: 20vw;
       }
     </style>
   </head>
@@ -40,14 +41,17 @@
     </div>
 
     <div
+      id="grid"
       style="
+        position: relative;
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
-        width: 50vw;
-        height: 30vh;
+        max-width: 50vw;
+        max-height: 30vh;
         background-color: azure;
         gap: 5px;
-        overflow-y: scroll;
+        overflow-y: auto;
+        overflow-x: auto;
       "
     >
       <p id="item1" class="item">Item 1</p>
@@ -141,10 +145,13 @@
       const drop2 = document.getElementById("drop2");
       dropzone(drop2);
 
+      const grid = document.getElementById("grid");
       const gridDraggables = [];
       for (let i = 1; i <= 9; i++) {
         const item = document.getElementById("item" + i);
-        gridDraggables.push(draggable(item, { bounds: item.parentElement }));
+        gridDraggables.push(
+          draggable(item, { bounds: grid, unlockDimensions: true })
+        );
       }
 
       const resetBtn = document.getElementById("reset");

@@ -1,5 +1,3 @@
-import { dragging, moveBy } from "./draggable.js";
-
 /** Scroll Container -> [up, down, left, right] */
 const scrollStates = new Map<
   HTMLElement,

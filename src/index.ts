@@ -5,6 +5,7 @@ import {
   endMouse,
   endTouch,
   isDragging,
+  draggables,
 } from "./dragging/draggable.js";
 import { dropzone, onDrag, onDrop } from "./dragging/dropzone.js";
 
