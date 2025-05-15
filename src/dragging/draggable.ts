@@ -22,6 +22,7 @@ type DragState = {
   startTranslate: Position;
   /** Left, Top, Right, Bottom */
   translationBounds?: [number, number, number, number];
+  fixed: boolean;
 };
 
 const cursorStyle = document.createElement("style");
@@ -66,6 +67,39 @@ export function draggable(el: HTMLElement, settings: DragSettings = {}) {
   el.addEventListener("mousedown", startMouseF);
   el.addEventListener("touchstart", startTouchF);
 
+  const resizeBounds =
+    "bounds" in settings && settings.bounds !== undefined
+      ? settings.bounds
+      : document.body.parentElement!;
+  const observer = new ResizeObserver(() => {
+    if (!(el.style.position === "absolute" || el.style.position === "fixed"))
+      return;
+
+    const rect = el.getBoundingClientRect();
+    const boundsRect = resizeBounds.getBoundingClientRect();
+
+    const translate = el.style.translate
+      .split(/\s+/)
+      .map((part) => parseInt(part.replace("px", "") || "0"));
+    while (translate.length < 2) translate.push(0);
+
+    const rightOvershoot = rect.right - boundsRect.right;
+    let leftOvershoot = boundsRect.left - rect.left;
+    if (rightOvershoot + leftOvershoot > 0) leftOvershoot = 0;
+
+    const bottomOvershoot = rect.bottom - boundsRect.bottom;
+    let topOvershoot = boundsRect.top - rect.top;
+    if (bottomOvershoot + topOvershoot > 0) topOvershoot = 0;
+
+    translate[0] -= Math.max(0, rightOvershoot);
+    translate[0] += Math.max(0, leftOvershoot);
+    translate[1] -= Math.max(0, bottomOvershoot);
+    translate[1] += Math.max(0, topOvershoot);
+
+    el.style.translate = `${translate[0]}px ${translate[1]}px`;
+  });
+  observer.observe(resizeBounds);
+
   return () => {
     if (!draggables.has(el)) return;
 
@@ -75,6 +109,8 @@ export function draggable(el: HTMLElement, settings: DragSettings = {}) {
 
     el.removeEventListener("mousedown", startMouseF);
     el.removeEventListener("touchstart", startTouchF);
+
+    observer.unobserve(resizeBounds);
   };
 }
 
@@ -174,6 +210,7 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
     startPos: [el.offsetLeft, el.offsetTop],
     startMouse: pos,
     startTranslate: startTranslate as [number, number],
+    fixed: el.style.position === "fixed",
   };
 
   if ("ghost" in settings) {
@@ -198,6 +235,7 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
 
     state.startTranslate[0] += rect.left - parentRect.left;
     state.startTranslate[1] += rect.top - parentRect.top;
+
     el.style.position = "absolute";
 
     if (!("unlockDimensions" in settings)) {
@@ -337,6 +375,18 @@ function move(
   }
 }
 
+export function moveBy(el: HTMLElement, amount: Position, state: DragState) {
+  const translate = el.style.translate
+    .split(/\s+/)
+    .map((part) => parseInt(part.replace("px", "") || "0"));
+  while (translate.length < 2) translate.push(0);
+
+  let left = translate[0] + amount[0];
+  let top = translate[1] + amount[1];
+
+  boundedMove(el, left, top, state);
+}
+
 function boundedMove(
   el: HTMLElement,
   left: number,
@@ -365,7 +415,7 @@ function end(el: HTMLElement) {
   stopVertical(scrollBounds);
   stopHorizontal(scrollBounds);
 
-  dragging.delete(el);
+  // dragging.delete(el);
   const ghost = ghosts.get(el);
   if (ghost) ghost.remove();
 }
@@ -374,33 +424,33 @@ export function isDragging() {
   return singleDragging !== undefined;
 }
 
-window.addEventListener("resize", () => {
-  for (const [el, settings] of draggables) {
-    if (!(el.style.position === "absolute" || el.style.position === "fixed"))
-      continue;
-    if (!("bounds" in settings) || settings.bounds === undefined) continue;
+// window.addEventListener("resize", () => {
+//   for (const [el, settings] of draggables) {
+//     if (!(el.style.position === "absolute" || el.style.position === "fixed"))
+//       continue;
+//     if (!("bounds" in settings) || settings.bounds === undefined) continue;
 
-    const rect = el.getBoundingClientRect();
-    const boundsRect = settings.bounds.getBoundingClientRect();
+//     const rect = el.getBoundingClientRect();
+//     const boundsRect = settings.bounds.getBoundingClientRect();
 
-    const translate = el.style.translate
-      .split(/\s+/)
-      .map((part) => parseInt(part.replace("px", "") || "0"));
-    while (translate.length < 2) translate.push(0);
+//     const translate = el.style.translate
+//       .split(/\s+/)
+//       .map((part) => parseInt(part.replace("px", "") || "0"));
+//     while (translate.length < 2) translate.push(0);
 
-    const rightOvershoot = rect.right - boundsRect.right;
-    let leftOvershoot = boundsRect.left - rect.left;
-    if (rightOvershoot + leftOvershoot > 0) leftOvershoot = 0;
+//     const rightOvershoot = rect.right - boundsRect.right;
+//     let leftOvershoot = boundsRect.left - rect.left;
+//     if (rightOvershoot + leftOvershoot > 0) leftOvershoot = 0;
 
-    const bottomOvershoot = rect.bottom - boundsRect.bottom;
-    let topOvershoot = boundsRect.top - rect.top;
-    if (bottomOvershoot + topOvershoot > 0) topOvershoot = 0;
+//     const bottomOvershoot = rect.bottom - boundsRect.bottom;
+//     let topOvershoot = boundsRect.top - rect.top;
+//     if (bottomOvershoot + topOvershoot > 0) topOvershoot = 0;
 
-    translate[0] -= Math.max(0, rightOvershoot);
-    translate[0] += Math.max(0, leftOvershoot);
-    translate[1] -= Math.max(0, bottomOvershoot);
-    translate[1] += Math.max(0, topOvershoot);
+//     translate[0] -= Math.max(0, rightOvershoot);
+//     translate[0] += Math.max(0, leftOvershoot);
+//     translate[1] -= Math.max(0, bottomOvershoot);
+//     translate[1] += Math.max(0, topOvershoot);
 
-    el.style.translate = `${translate[0]}px ${translate[1]}px`;
-  }
-});
+//     el.style.translate = `${translate[0]}px ${translate[1]}px`;
+//   }
+// });

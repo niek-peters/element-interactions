@@ -1,3 +1,5 @@
+import { dragging, moveBy } from "./draggable.js";
+
 /** Scroll Container -> [up, down, left, right] */
 const scrollStates = new Map<
   HTMLElement,
@@ -40,7 +42,11 @@ export function scrollDown(el: HTMLElement) {
   scrollStates.set(el, state);
 
   verticalInterval = setInterval(() => {
-    el.scrollBy({ top: ease(verticalIteration) });
+    const top = ease(verticalIteration);
+    // for (const [el, settings] of dragging) {
+    //   moveBy(el, [0, top], settings);
+    // }
+    el.scrollBy({ top });
     verticalIteration++;
   }, ITERATION_INTERVAL);
 }

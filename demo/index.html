@@ -27,6 +27,7 @@
       .item {
         margin: 0;
         background-color: bisque;
+        height: 20vh;
       }
     </style>
   </head>
@@ -43,9 +44,10 @@
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
         width: 50vw;
-        height: 20vh;
+        height: 30vh;
         background-color: azure;
         gap: 5px;
+        overflow-y: scroll;
       "
     >
       <p id="item1" class="item">Item 1</p>
@@ -54,6 +56,9 @@
       <p id="item4" class="item">Item 4</p>
       <p id="item5" class="item">Item 5</p>
       <p id="item6" class="item">Item 6</p>
+      <p id="item7" class="item">Item 7</p>
+      <p id="item8" class="item">Item 8</p>
+      <p id="item9" class="item">Item 9</p>
     </div>
 
     <button id="reset">Remove draggability! >:)</button>
@@ -76,10 +81,13 @@
     <ul>
       <b>Todo</b>
       <li>
-        Every draggable needs to change to position: fixed on drag start (and
-        change back on drop)
+        Figure out how to do scrolling (Either: Every draggable needs to change
+        to position: fixed on drag start (and change back on drop, figure out
+        how to trigger dragOver, figure out translations), or dragging should
+        trigger touch and mouse move events somehow). Also test scrolling inside
+        containers
       </li>
-      <li>Add autoscroll</li>
+      <li>Figure out how to do scrolling for multiple dragged items at once</li>
       <li>
         Add drag groups (where you can apply rules for a set of draggables)
       </li>
@@ -134,7 +142,7 @@
       dropzone(drop2);
 
       const gridDraggables = [];
-      for (let i = 1; i <= 6; i++) {
+      for (let i = 1; i <= 9; i++) {
         const item = document.getElementById("item" + i);
         gridDraggables.push(draggable(item, { bounds: item.parentElement }));
       }

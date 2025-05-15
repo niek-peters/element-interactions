@@ -22,6 +22,12 @@ export function onDragLeave(draggable: HTMLElement) {
 }
 
 export function onDrop(draggable: HTMLElement) {
+  // if (dragging.get(draggable)?.fixed === false) {
+  //   draggable.style.position = "absolute";
+  // }
+
+  dragging.delete(draggable);
+
   const dropZone = over.get(draggable);
   if (dropZone === undefined) return;
   over.delete(draggable);
