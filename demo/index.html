@@ -112,7 +112,10 @@
       import { draggable, dropzone } from "/build/index.js";
 
       const el = document.getElementById("dragme");
-      draggable(el, { bounds: document.body.parentElement });
+      draggable(dragme, {
+        bounds: document.body.parentElement,
+        unlockDimensions: true,
+      });
 
       const el3 = document.getElementById("dragme3");
       draggable(el3);

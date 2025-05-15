@@ -181,6 +181,10 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
     ghosts.set(el, ghost);
     if (ghost.id.length) ghost.id += "-ghost";
     el.insertAdjacentElement("afterend", ghost);
+
+    const zIndex = el.style.zIndex;
+    ghost.style.zIndex =
+      zIndex === "auto" ? "-1" : (parseInt(zIndex) - 1).toString();
   }
 
   const styles = getComputedStyle(el);
@@ -328,7 +332,7 @@ function move(
       Math.ceil(scrollBounds.scrollLeft) <
         scrollBounds.scrollWidth - scrollBounds.clientWidth &&
       Math.min(window.innerWidth, boundsRect.right) - pos[0] < SCROLL_RANGE
-    ) 
+    )
       scrollRight(scrollBounds);
   }
 }
@@ -351,20 +355,6 @@ function boundedMove(
   el.style.translate = `${left}px ${top}px`;
 }
 
-// function boundedMoveBy(
-//   el: HTMLElement,
-//   amount: Position,
-//   state: DragState,
-//   styles: CSSStyleDeclaration
-// ) {
-//   console.log("juh", amount);
-//   const parts = styles.translate.split(/\s+/);
-//   const left = parseInt(parts[0]) + amount[0];
-//   const top = parseInt(parts[1]) + amount[1];
-
-//   boundedMove(el, left, top, state);
-// }
-
 function end(el: HTMLElement) {
   const settings = draggables.get(el)!;
   const scrollBounds =
@@ -383,3 +373,34 @@ function end(el: HTMLElement) {
 export function isDragging() {
   return singleDragging !== undefined;
 }
+
+window.addEventListener("resize", () => {
+  for (const [el, settings] of draggables) {
+    if (!(el.style.position === "absolute" || el.style.position === "fixed"))
+      continue;
+    if (!("bounds" in settings) || settings.bounds === undefined) continue;
+
+    const rect = el.getBoundingClientRect();
+    const boundsRect = settings.bounds.getBoundingClientRect();
+
+    const translate = el.style.translate
+      .split(/\s+/)
+      .map((part) => parseInt(part.replace("px", "") || "0"));
+    while (translate.length < 2) translate.push(0);
+
+    const rightOvershoot = rect.right - boundsRect.right;
+    let leftOvershoot = boundsRect.left - rect.left;
+    if (rightOvershoot + leftOvershoot > 0) leftOvershoot = 0;
+
+    const bottomOvershoot = rect.bottom - boundsRect.bottom;
+    let topOvershoot = boundsRect.top - rect.top;
+    if (bottomOvershoot + topOvershoot > 0) topOvershoot = 0;
+
+    translate[0] -= Math.max(0, rightOvershoot);
+    translate[0] += Math.max(0, leftOvershoot);
+    translate[1] -= Math.max(0, bottomOvershoot);
+    translate[1] += Math.max(0, topOvershoot);
+
+    el.style.translate = `${translate[0]}px ${translate[1]}px`;
+  }
+});
