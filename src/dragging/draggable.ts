@@ -1,32 +1,5 @@
-import { onDrag } from "./dropzone.js";
-import {
-  scrollDown,
-  scrollLeft,
-  scrollRight,
-  scrollUp,
-  stopHorizontal,
-  stopVertical,
-} from "./scrolling.js";
-
-type Position = [number, number];
-
-type DragSettingsInput = Omit<DragSettings, "container">;
-type DragSettings = {
-  ghost?: true;
-  cursor?: string;
-  bounds?: HTMLElement;
-  unlockDimensions?: true;
-  container: HTMLElement;
-};
-type DragState = {
-  startPos: Position;
-  startMouse: Position;
-  startTranslate: Position;
-  startScroll: Position;
-  /** Left, Top, Right, Bottom */
-  translationBounds?: [number, number, number, number];
-  fixed: boolean;
-};
+import { onDrag, onDrop } from "./dropzone.js";
+import { handleScroll, stopHorizontal, stopVertical } from "./scrolling.js";
 
 const cursorStyle = document.createElement("style");
 
@@ -36,17 +9,11 @@ let singleDragging: [HTMLElement, DragState, DragSettings] | undefined;
 
 const ghosts = new Map<HTMLElement, HTMLElement>();
 
-/** container -> [draggingElement -> last known pointer position (from last move), scroll position during last move] */
-const scrollContainerDragging = new Map<
-  HTMLElement,
-  [Map<HTMLElement, Position>, Position]
->();
+/** container -> dragging -> last pointer position */
+const containerDragging = new Map<HTMLElement, Map<HTMLElement, Position>>();
 
 const order: [HTMLElement, number][] = [];
 let orderBase = 0;
-
-/** Distance (in pixels) from bounds edge to start scrolling */
-const SCROLL_RANGE = 50;
 
 export function draggable(el: HTMLElement, settings: DragSettingsInput = {}) {
   if (draggables.has(el)) return;
@@ -55,91 +22,33 @@ export function draggable(el: HTMLElement, settings: DragSettingsInput = {}) {
     "bounds" in settings && settings.bounds !== undefined
       ? settings.bounds
       : document.body.parentElement!;
+  const scrollContainer =
+    container === document.body.parentElement ? window : container;
 
   const finalSettings: DragSettings = { ...settings, container };
 
   draggables.set(el, finalSettings);
-  if (!scrollContainerDragging.has(container)) {
-    scrollContainerDragging.set(container, [
-      new Map<HTMLElement, Position>(),
-      [0, 0],
-    ]);
-    const scrollContainer =
-      container === document.body.parentElement ? window : container;
-    scrollContainer.addEventListener("scroll", () => {
-      const draggingElements = scrollContainerDragging.get(container);
-      if (draggingElements === undefined || draggingElements[0].size === 0)
-        return;
-
-      for (const [draggingElement, lastPos] of draggingElements[0]) {
-        const state = dragging.get(draggingElement)!;
-
-        move(draggingElement, lastPos, state, finalSettings);
-        onDrag(
-          document.elementsFromPoint(lastPos[0], lastPos[1]) as HTMLElement[]
-        );
-      }
-    });
-  }
 
   el.classList.add("draggable");
 
-  const zIndex = getComputedStyle(el).zIndex;
-  const z = zIndex === "auto" ? 0 : parseInt(zIndex);
-
-  order.push([el, z]);
-
-  for (let i = order.length - 1; i > 0; i--) {
-    if (order[i][1] < order[i - 1][1]) {
-      const temp = order[i - 1];
-      order[i - 1] = order[i];
-      order[i] = temp;
-    } else break;
-  }
-
-  orderBase = order[order.length - 1][1];
+  initOrder(el);
 
   const startMouseF = (e: MouseEvent) => startMouse(e, finalSettings);
   const startTouchF = (e: TouchEvent) => startTouch(e, finalSettings);
+  const scrollF = () => {
+    for (const [el, pos] of containerDragging.get(container)!)
+      move(el, pos, dragging.get(el)!, finalSettings);
+  };
 
   el.addEventListener("mousedown", startMouseF);
   el.addEventListener("touchstart", startTouchF);
 
-  const observer = new ResizeObserver(() => {
-    if (!(el.style.position === "absolute" || el.style.position === "fixed"))
-      return;
+  if (!containerDragging.has(container)) {
+    containerDragging.set(container, new Map<HTMLElement, Position>());
+    scrollContainer.addEventListener("scroll", scrollF);
+  }
 
-    const rect = el.getBoundingClientRect();
-    const boundsRect = container.getBoundingClientRect();
-
-    const translate = el.style.translate
-      .split(/\s+/)
-      .map((part) => parseInt(part.replace("px", "") || "0"));
-    while (translate.length < 2) translate.push(0);
-
-    const rightOvershoot =
-      rect.right -
-      boundsRect.left -
-      container.scrollWidth +
-      container.scrollLeft;
-    let leftOvershoot = boundsRect.left - rect.left - container.scrollLeft;
-    if (rightOvershoot + leftOvershoot > 0) leftOvershoot = 0;
-
-    const bottomOvershoot =
-      rect.bottom -
-      boundsRect.top -
-      container.scrollHeight +
-      container.scrollTop;
-    let topOvershoot = boundsRect.top - rect.top - container.scrollTop;
-    if (bottomOvershoot + topOvershoot > 0) topOvershoot = 0;
-
-    translate[0] -= Math.max(0, rightOvershoot);
-    translate[0] += Math.max(0, leftOvershoot);
-    translate[1] -= Math.max(0, bottomOvershoot);
-    translate[1] += Math.max(0, topOvershoot);
-
-    el.style.translate = `${translate[0]}px ${translate[1]}px`;
-  });
+  const observer = createResizeWatcher(el, container);
   observer.observe(container);
 
   return () => {
@@ -157,7 +66,6 @@ export function draggable(el: HTMLElement, settings: DragSettingsInput = {}) {
 }
 
 function startMouse(e: MouseEvent, settings: DragSettings) {
-  // console.log("startmouse");
   const el = e.currentTarget! as HTMLElement;
   if (!draggables.get(el)) return;
 
@@ -172,12 +80,9 @@ function startMouse(e: MouseEvent, settings: DragSettings) {
 
   cursorStyle.innerHTML = `*{cursor: ${cursor} !important;}`;
   document.head.appendChild(cursorStyle);
-
-  onDrag(document.elementsFromPoint(pos[0], pos[1]) as HTMLElement[]);
 }
 
 function startTouch(e: TouchEvent, settings: DragSettings) {
-  // console.log("starttouch");
   if (e.cancelable) e.preventDefault();
 
   const el = e.currentTarget! as HTMLElement;
@@ -187,13 +92,10 @@ function startTouch(e: TouchEvent, settings: DragSettings) {
   const pos: Position = [current.clientX, current.clientY];
 
   start(el, pos, settings);
-
-  onDrag(document.elementsFromPoint(pos[0], pos[1]) as HTMLElement[]);
 }
 
 export function moveMouse(e: MouseEvent) {
   if (singleDragging === undefined) return;
-  // console.log("movemouse");
 
   const pos: Position = [e.clientX, e.clientY];
 
@@ -204,7 +106,6 @@ export function moveMouse(e: MouseEvent) {
 
 export function moveTouch(e: TouchEvent) {
   if (singleDragging === undefined) return;
-  // console.log("movetouch");
 
   for (const touch of e.changedTouches) {
     const el = touch.target as HTMLElement;
@@ -219,7 +120,6 @@ export function moveTouch(e: TouchEvent) {
 
 export function endMouse(e: MouseEvent) {
   if (singleDragging === undefined) return;
-  // console.log("endmouse");
   end(singleDragging[0]);
 
   singleDragging = undefined;
@@ -227,7 +127,6 @@ export function endMouse(e: MouseEvent) {
 }
 
 export function endTouch(e: TouchEvent) {
-  // console.log("endtouch");
   if (singleDragging === undefined) return;
   if (e.cancelable) e.preventDefault();
 
@@ -268,9 +167,9 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
   }
 
   const styles = getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
 
   if (styles.position !== "fixed" && styles.position !== "absolute") {
-    const rect = el.getBoundingClientRect();
     const parentRect = el.parentElement!.getBoundingClientRect();
 
     state.startTranslate[0] -= parseInt(styles.marginLeft);
@@ -292,29 +191,24 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
   }
 
   if ("bounds" in settings && settings.bounds !== undefined) {
-    const rect = el.getBoundingClientRect();
     const boundsRect = settings.bounds.getBoundingClientRect();
     state.translationBounds = [
       boundsRect.left -
         rect.left +
-        // parseInt(styles.marginLeft) +
         state.startTranslate[0] -
         settings.bounds.scrollLeft,
       boundsRect.top -
         rect.top +
-        // parseInt(styles.marginTop) +
         state.startTranslate[1] -
         settings.bounds.scrollTop,
       boundsRect.right -
         rect.right +
-        // parseInt(styles.marginRight) +
         state.startTranslate[0] +
         (settings.bounds.scrollWidth -
           settings.bounds.offsetWidth -
           settings.bounds.scrollLeft),
       boundsRect.bottom -
         rect.bottom +
-        // parseInt(styles.marginBottom) +
         state.startTranslate[1] +
         (settings.bounds.scrollHeight -
           settings.bounds.offsetHeight -
@@ -322,9 +216,89 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
     ];
   }
 
-  if (order.length >= 2 && order[order.length - 1][0] !== el) {
+  reorder(el);
+
+  dragging.set(el, state);
+  singleDragging = [el, state, settings];
+
+  move(el, pos, state, settings);
+}
+
+function move(
+  el: HTMLElement,
+  pos: Position,
+  state: DragState,
+  settings: DragSettings
+) {
+  const others = containerDragging.get(settings.container)!;
+  others.set(el, pos);
+
+  let left =
+    state.startTranslate[0] +
+    pos[0] -
+    state.startMouse[0] +
+    settings.container.scrollLeft -
+    state.startScroll[0];
+  let top =
+    state.startTranslate[1] +
+    pos[1] -
+    state.startMouse[1] +
+    settings.container.scrollTop -
+    state.startScroll[1];
+
+  // bounds
+  if (state.translationBounds !== undefined) {
+    if (left < state.translationBounds[0]) left = state.translationBounds[0];
+    else if (left > state.translationBounds[2])
+      left = state.translationBounds[2];
+
+    if (top < state.translationBounds[1]) top = state.translationBounds[1];
+    else if (top > state.translationBounds[3]) top = state.translationBounds[3];
+  }
+  el.style.translate = `${left}px ${top}px`;
+
+  handleScroll(pos, settings);
+
+  onDrag(el, document.elementsFromPoint(pos[0], pos[1]) as HTMLElement[]);
+}
+
+function end(el: HTMLElement) {
+  const settings = draggables.get(el)!;
+
+  stopVertical(settings.container);
+  stopHorizontal(settings.container);
+
+  dragging.delete(el);
+  const ghost = ghosts.get(el);
+  if (ghost) ghost.remove();
+
+  const others = containerDragging.get(settings.container);
+  if (others !== undefined) others.delete(el);
+
+  onDrop(el);
+}
+
+function initOrder(draggable: HTMLElement) {
+  const zIndex = getComputedStyle(draggable).zIndex;
+  const z = zIndex === "auto" ? 0 : parseInt(zIndex);
+
+  order.push([draggable, z]);
+
+  for (let i = order.length - 1; i > 0; i--) {
+    if (order[i][1] < order[i - 1][1]) {
+      const temp = order[i - 1];
+      order[i - 1] = order[i];
+      order[i] = temp;
+    } else break;
+  }
+
+  orderBase = order[order.length - 1][1];
+}
+
+function reorder(draggable: HTMLElement) {
+  if (order.length >= 2 && order[order.length - 1][0] !== draggable) {
     for (let i = 0; i < order.length - 1; i++) {
-      if (order[i][0] === el) {
+      if (order[i][0] === draggable) {
         const temp = order[i];
         order[i] = order[i + 1];
         order[i + 1] = temp;
@@ -364,123 +338,47 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
       "important"
     );
   }
-
-  dragging.set(el, state);
-  singleDragging = [el, state, settings];
-
-  move(el, pos, state, settings);
 }
 
-function move(
-  el: HTMLElement,
-  pos: Position,
-  state: DragState,
-  settings: DragSettings
-) {
-  const others = scrollContainerDragging.get(settings.container)!;
-  others[0].set(el, pos);
-  others[1] = [settings.container.scrollLeft, settings.container.scrollTop];
-
-  let left =
-    state.startTranslate[0] +
-    pos[0] -
-    state.startMouse[0] +
-    settings.container.scrollLeft -
-    state.startScroll[0];
-  let top =
-    state.startTranslate[1] +
-    pos[1] -
-    state.startMouse[1] +
-    settings.container.scrollTop -
-    state.startScroll[1];
-
-  boundedMove(el, left, top, state);
-
-  // autoscroll
-  const boundsRect = settings.container.getBoundingClientRect();
-  // can scroll vertically
-  if (settings.container.scrollHeight > settings.container.clientHeight) {
-    // can scroll up
+function createResizeWatcher(draggable: HTMLElement, container: HTMLElement) {
+  return new ResizeObserver(() => {
     if (
-      settings.container.scrollTop > 0 &&
-      pos[1] - Math.max(0, boundsRect.top) < SCROLL_RANGE
+      !(
+        draggable.style.position === "absolute" ||
+        draggable.style.position === "fixed"
+      )
     )
-      scrollUp(settings.container);
-    // can scroll down
-    else if (
-      Math.ceil(settings.container.scrollTop) <
-        settings.container.scrollHeight - settings.container.clientHeight &&
-      Math.min(window.innerHeight, boundsRect.bottom) - pos[1] < SCROLL_RANGE
-    )
-      scrollDown(settings.container);
-    else stopVertical(settings.container);
-  }
-  // can scroll horizontally
-  if (settings.container.scrollWidth > settings.container.clientWidth) {
-    // can scroll left
-    if (
-      settings.container.scrollLeft > 0 &&
-      pos[0] - Math.max(0, boundsRect.left) < SCROLL_RANGE
-    )
-      scrollLeft(settings.container);
-    // can scroll right
-    if (
-      Math.ceil(settings.container.scrollLeft) <
-        settings.container.scrollWidth - settings.container.clientWidth &&
-      Math.min(window.innerWidth, boundsRect.right) - pos[0] < SCROLL_RANGE
-    )
-      scrollRight(settings.container);
-  }
-}
+      return;
 
-export function moveBy(el: HTMLElement, amount: Position, state: DragState) {
-  const translate = el.style.translate
-    .split(/\s+/)
-    .map((part) => parseInt(part.replace("px", "") || "0"));
-  while (translate.length < 2) translate.push(0);
+    const rect = draggable.getBoundingClientRect();
+    const boundsRect = container.getBoundingClientRect();
 
-  let left = translate[0] + amount[0];
-  let top = translate[1] + amount[1];
+    const translate = draggable.style.translate
+      .split(/\s+/)
+      .map((part) => parseInt(part.replace("px", "") || "0"));
+    while (translate.length < 2) translate.push(0);
 
-  boundedMove(el, left, top, state);
-}
+    const rightOvershoot =
+      rect.right -
+      boundsRect.left -
+      container.scrollWidth +
+      container.scrollLeft;
+    let leftOvershoot = boundsRect.left - rect.left - container.scrollLeft;
+    if (rightOvershoot + leftOvershoot > 0) leftOvershoot = 0;
 
-function boundedMove(
-  el: HTMLElement,
-  left: number,
-  top: number,
-  state: DragState
-) {
-  // bounds
-  if (state.translationBounds !== undefined) {
-    if (left < state.translationBounds[0]) left = state.translationBounds[0];
-    else if (left > state.translationBounds[2])
-      left = state.translationBounds[2];
+    const bottomOvershoot =
+      rect.bottom -
+      boundsRect.top -
+      container.scrollHeight +
+      container.scrollTop;
+    let topOvershoot = boundsRect.top - rect.top - container.scrollTop;
+    if (bottomOvershoot + topOvershoot > 0) topOvershoot = 0;
 
-    if (top < state.translationBounds[1]) top = state.translationBounds[1];
-    else if (top > state.translationBounds[3]) top = state.translationBounds[3];
-  }
-  el.style.translate = `${left}px ${top}px`;
-}
+    translate[0] -= Math.max(0, rightOvershoot);
+    translate[0] += Math.max(0, leftOvershoot);
+    translate[1] -= Math.max(0, bottomOvershoot);
+    translate[1] += Math.max(0, topOvershoot);
 
-function end(el: HTMLElement) {
-  const settings = draggables.get(el)!;
-  const scrollBounds =
-    "bounds" in settings && settings.bounds !== undefined
-      ? settings.bounds
-      : document.body.parentElement!;
-
-  stopVertical(scrollBounds);
-  stopHorizontal(scrollBounds);
-
-  dragging.delete(el);
-  const ghost = ghosts.get(el);
-  if (ghost) ghost.remove();
-
-  const others = scrollContainerDragging.get(settings.container);
-  if (others !== undefined) others[0].delete(el);
-}
-
-export function isDragging() {
-  return singleDragging !== undefined;
+    draggable.style.translate = `${translate[0]}px ${translate[1]}px`;
+  });
 }

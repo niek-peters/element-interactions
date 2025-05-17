@@ -1,8 +1,7 @@
-/** Scroll Container -> [up, down, left, right] */
-const scrollStates = new Map<
-  HTMLElement,
-  [boolean, boolean, boolean, boolean]
->();
+type ScrollState = -1 | 0 | 1;
+
+/** Scroll Container -> [up/down, left/right] */
+const scrollStates = new Map<HTMLElement, [ScrollState, ScrollState]>();
 
 let verticalInterval: number | undefined;
 let verticalIteration = 1;
@@ -12,74 +11,85 @@ let horizontalIteration = 1;
 // 60 FPS
 const ITERATION_INTERVAL = 17;
 
+/** Distance (in pixels) from bounds edge to start scrolling */
+const SCROLL_RANGE = 50;
+
 // accelerate (top speed in 1 second)
 function ease(iteration: number) {
   return Math.min(iteration / 2, 30);
 }
 
-export function scrollUp(el: HTMLElement) {
-  let state = scrollStates.get(el) ?? [false, false, false, false];
-
-  if (state[0]) return;
-  if (state[1]) stopVertical(el);
-  state[0] = true;
-  scrollStates.set(el, state);
-
-  verticalInterval = setInterval(() => {
-    el.scrollBy({ top: -ease(verticalIteration) });
-    verticalIteration++;
-  }, ITERATION_INTERVAL);
+export function handleScroll(pos: Position, settings: DragSettings) {
+  // autoscroll
+  const boundsRect = settings.container.getBoundingClientRect();
+  // can scroll vertically
+  if (settings.container.scrollHeight > settings.container.clientHeight) {
+    // can scroll up
+    if (
+      settings.container.scrollTop > 0 &&
+      pos[1] - Math.max(0, boundsRect.top) < SCROLL_RANGE
+    )
+      scroll(settings.container, true, false);
+    // can scroll down
+    else if (
+      Math.ceil(settings.container.scrollTop) <
+        settings.container.scrollHeight - settings.container.clientHeight &&
+      Math.min(window.innerHeight, boundsRect.bottom) - pos[1] < SCROLL_RANGE
+    )
+      scroll(settings.container, true, true);
+    else stopVertical(settings.container);
+  }
+  // can scroll horizontally
+  if (settings.container.scrollWidth > settings.container.clientWidth) {
+    // can scroll left
+    if (
+      settings.container.scrollLeft > 0 &&
+      pos[0] - Math.max(0, boundsRect.left) < SCROLL_RANGE
+    )
+      scroll(settings.container, false, false);
+    // can scroll right
+    else if (
+      Math.ceil(settings.container.scrollLeft) <
+        settings.container.scrollWidth - settings.container.clientWidth &&
+      Math.min(window.innerWidth, boundsRect.right) - pos[0] < SCROLL_RANGE
+    )
+      scroll(settings.container, false, true);
+    else stopHorizontal(settings.container);
+  }
 }
 
-export function scrollDown(el: HTMLElement) {
-  let state = scrollStates.get(el) ?? [false, false, false, false];
+function scroll(container: HTMLElement, vertical: boolean, positive: boolean) {
+  const states = scrollStates.get(container) ?? [0, 0];
 
-  if (state[1]) return;
-  if (state[0]) stopVertical(el);
-  state[1] = true;
-  scrollStates.set(el, state);
+  const dimIndex = vertical ? 0 : 1;
+  const state = positive ? 1 : -1;
 
-  verticalInterval = setInterval(() => {
-    el.scrollBy({ top: ease(verticalIteration) });
-    verticalIteration++;
-  }, ITERATION_INTERVAL);
-}
+  if (states[dimIndex] === state) return;
+  if (states[dimIndex] === -state) {
+    if (vertical) stopVertical(container);
+    else stopHorizontal(container);
+  }
+  states[dimIndex] = state;
+  scrollStates.set(container, states);
 
-export function scrollLeft(el: HTMLElement) {
-  let state = scrollStates.get(el) ?? [false, false, false, false];
-
-  if (state[2]) return;
-  if (state[3]) stopHorizontal(el);
-  state[2] = true;
-  scrollStates.set(el, state);
-
-  horizontalInterval = setInterval(() => {
-    el.scrollBy({ left: -ease(horizontalIteration) });
-    horizontalIteration++;
-  }, ITERATION_INTERVAL);
-}
-
-export function scrollRight(el: HTMLElement) {
-  let state = scrollStates.get(el) ?? [false, false, false, false];
-
-  if (state[3]) return;
-  if (state[2]) stopHorizontal(el);
-  state[3] = true;
-  scrollStates.set(el, state);
-
-  horizontalInterval = setInterval(() => {
-    el.scrollBy({ left: ease(horizontalIteration) });
-    horizontalIteration++;
-  }, ITERATION_INTERVAL);
+  if (vertical)
+    verticalInterval = setInterval(() => {
+      container.scrollBy({ top: state * ease(verticalIteration) });
+      verticalIteration++;
+    }, ITERATION_INTERVAL);
+  else
+    horizontalInterval = setInterval(() => {
+      container.scrollBy({ left: state * ease(horizontalIteration) });
+      horizontalIteration++;
+    }, ITERATION_INTERVAL);
 }
 
 export function stopVertical(el: HTMLElement) {
   if (verticalInterval === undefined) return;
 
-  let state = scrollStates.get(el) ?? [false, false, false, false];
-  state[0] = false;
-  state[1] = false;
-  scrollStates.set(el, state);
+  let states = scrollStates.get(el) ?? [0, 0];
+  states[0] = 0;
+  scrollStates.set(el, states);
 
   clearInterval(verticalInterval);
   verticalInterval = undefined;
@@ -89,10 +99,9 @@ export function stopVertical(el: HTMLElement) {
 export function stopHorizontal(el: HTMLElement) {
   if (horizontalInterval === undefined) return;
 
-  let state = scrollStates.get(el) ?? [false, false, false, false];
-  state[2] = false;
-  state[3] = false;
-  scrollStates.set(el, state);
+  let states = scrollStates.get(el) ?? [0, 0];
+  states[1] = 0;
+  scrollStates.set(el, states);
 
   clearInterval(horizontalInterval);
   horizontalInterval = undefined;

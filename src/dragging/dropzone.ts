@@ -1,5 +1,3 @@
-import { draggables, dragging } from "./draggable.js";
-
 export const dropzones = new Set<HTMLElement>();
 export const over = new Map<HTMLElement, HTMLElement>();
 
@@ -22,12 +20,6 @@ export function onDragLeave(draggable: HTMLElement) {
 }
 
 export function onDrop(draggable: HTMLElement) {
-  // if (dragging.get(draggable)?.fixed === false) {
-  //   draggable.style.position = "absolute";
-  // }
-
-  // dragging.delete(draggable);
-
   const dropZone = over.get(draggable);
   if (dropZone === undefined) return;
   over.delete(draggable);
@@ -35,25 +27,20 @@ export function onDrop(draggable: HTMLElement) {
   console.log("dropped", draggable.id, dropZone.id);
 }
 
-export function onDrag(els: HTMLElement[]) {
-  let draggable: HTMLElement | undefined;
+export function onDrag(draggable: HTMLElement, els: HTMLElement[]) {
   let dropZone: HTMLElement | undefined;
+  let foundDraggable = false;
   for (const el of els) {
-    if (dropzones.has(el)) {
-      dropZone = el;
-      if (draggable !== undefined) break;
-    } else if (dragging.has(el)) {
-      draggable = el;
-      if (dropZone !== undefined) break;
-    }
+    if (el === draggable) foundDraggable = true;
+    if (dropzones.has(el)) dropZone = el;
+
+    if (foundDraggable && dropZone !== undefined) break;
   }
 
-  if (draggable === undefined) return;
+  // this can happen if an element is bounded and can't be dragged over a dropzone
+  if (!foundDraggable) return;
 
-  if (dropZone === undefined) {
-    onDragLeave(draggable);
-    return;
-  }
+  if (dropZone === undefined) return onDragLeave(draggable);
 
   const prev = over.get(draggable);
 
