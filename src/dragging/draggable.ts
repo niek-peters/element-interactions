@@ -22,6 +22,7 @@ type DragState = {
   startPos: Position;
   startMouse: Position;
   startTranslate: Position;
+  startScroll: Position;
   /** Left, Top, Right, Bottom */
   translationBounds?: [number, number, number, number];
   fixed: boolean;
@@ -70,23 +71,13 @@ export function draggable(el: HTMLElement, settings: DragSettingsInput = {}) {
       if (draggingElements === undefined || draggingElements[0].size === 0)
         return;
 
-      const deltaX =
-        ("scrollLeft" in scrollContainer
-          ? scrollContainer.scrollLeft
-          : scrollContainer.scrollX) - draggingElements[1][0];
-      const deltaY =
-        ("scrollTop" in scrollContainer
-          ? scrollContainer.scrollTop
-          : scrollContainer.scrollY) - draggingElements[1][1];
-      console.log("deltas", deltaX, deltaY);
-
       for (const [draggingElement, lastPos] of draggingElements[0]) {
-        console.log(draggingElement, lastPos);
         const state = dragging.get(draggingElement)!;
 
-        const pos: Position = [lastPos[0] + deltaX, lastPos[1] + deltaY];
-
-        move(draggingElement, pos, state, finalSettings);
+        move(draggingElement, lastPos, state, finalSettings);
+        onDrag(
+          document.elementsFromPoint(lastPos[0], lastPos[1]) as HTMLElement[]
+        );
       }
     });
   }
@@ -261,6 +252,7 @@ function start(el: HTMLElement, pos: Position, settings: DragSettings) {
     startPos: [el.offsetLeft, el.offsetTop],
     startMouse: pos,
     startTranslate: startTranslate as [number, number],
+    startScroll: [settings.container.scrollLeft, settings.container.scrollTop],
     fixed: el.style.position === "fixed",
   };
 
@@ -389,18 +381,23 @@ function move(
   others[0].set(el, pos);
   others[1] = [settings.container.scrollLeft, settings.container.scrollTop];
 
-  console.log(pos);
-
-  const styles = getComputedStyle(el);
-
-  let left = state.startTranslate[0] + pos[0] - state.startMouse[0];
-  let top = state.startTranslate[1] + pos[1] - state.startMouse[1];
+  let left =
+    state.startTranslate[0] +
+    pos[0] -
+    state.startMouse[0] +
+    settings.container.scrollLeft -
+    state.startScroll[0];
+  let top =
+    state.startTranslate[1] +
+    pos[1] -
+    state.startMouse[1] +
+    settings.container.scrollTop -
+    state.startScroll[1];
 
   boundedMove(el, left, top, state);
 
   // autoscroll
   const boundsRect = settings.container.getBoundingClientRect();
-  const fixed = styles.position === "fixed";
   // can scroll vertically
   if (settings.container.scrollHeight > settings.container.clientHeight) {
     // can scroll up
