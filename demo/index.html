@@ -85,35 +85,24 @@
     <ul>
       <b>Todo</b>
       <li>
-        To fix scrolling: save the last mouseMove/touchMove mouse/touch
-        positions + the scroll position of the scrollContainer during the last
-        event (per dragging element). Then, on scroll for the scrollContainer,
-        calculate the difference between the initial scroll position and the
-        current, and run the move function with the mouse/touch positions + the
-        scroll position difference
+        (NEEDS TESTING) Figure out how to do scrolling for multiple dragged
+        items at once
       </li>
       <li>
-        Now to actually fix scrolling, make sure to either update translation
-        when the mouse moves fr fr again, OR change to making all mentions of
-        'pos' be relative to the scrollContainer instead of the window
-      </li>
-      <li>
-        Might be good to enable seperate configuration for scrollContainer and
-        resize/boundsContainer
-      </li>
-      <li>Figure out how to do scrolling for multiple dragged items at once</li>
-      <li>
-        Burning suspicion that when dragging two draggables over each other on
-        dropzones it gets confused what draggable to use
+        Maybe every scrollable parent element of a draggable should act as
+        scrollContainer
       </li>
       <li>
         Add drag groups (where you can apply rules for a set of draggables)
       </li>
       <li>Add dropzones</li>
-      <li>DropZone types: sink, slot, stack (w/ max height)</li>
+      <li>DropZone types: sink, slot, collection (w/ max size)</li>
       <li>
-        DropZone dropPosition: undefined, fn(stackHeight) -> Position (relative)
+        DropZone dropPosition: undefined, fn(collectionSize) -> Position
+        (relative)
       </li>
+      <li>Allow displaying of dropGhost at dropPosition</li>
+      <li>Make ghost, dragging and dropGhost individually togglable</li>
       <li>
         Add onDrop handler (so you can make elements go back to where they came
         from)
@@ -123,8 +112,6 @@
         between items or on items, and shift direction)
       </li>
       <li>Add DragGrids (with same handlers)</li>
-      <li>Add dropGhost</li>
-      <li>Make ghost, dragging and dropGhost individually togglable</li>
       <li>
         Add dragMode: snap, for only changing element position when dragging
         over a certain dropzone

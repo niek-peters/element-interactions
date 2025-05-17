@@ -10,7 +10,10 @@ let singleDragging: [HTMLElement, DragState, DragSettings] | undefined;
 const ghosts = new Map<HTMLElement, HTMLElement>();
 
 /** container -> dragging -> last pointer position */
-const containerDragging = new Map<HTMLElement, Map<HTMLElement, Position>>();
+const containerPositions = new Map<
+  HTMLElement,
+  Map<HTMLElement, Position | undefined>
+>();
 
 const order: [HTMLElement, number][] = [];
 let orderBase = 0;
@@ -36,17 +39,21 @@ export function draggable(el: HTMLElement, settings: DragSettingsInput = {}) {
   const startMouseF = (e: MouseEvent) => startMouse(e, finalSettings);
   const startTouchF = (e: TouchEvent) => startTouch(e, finalSettings);
   const scrollF = () => {
-    for (const [el, pos] of containerDragging.get(container)!)
+    for (const [el, pos] of containerPositions.get(container)!) {
+      if (pos === undefined) continue;
       move(el, pos, dragging.get(el)!, finalSettings);
+    }
   };
 
   el.addEventListener("mousedown", startMouseF);
   el.addEventListener("touchstart", startTouchF);
 
-  if (!containerDragging.has(container)) {
-    containerDragging.set(container, new Map<HTMLElement, Position>());
+  if (!containerPositions.has(container)) {
+    containerPositions.set(container, new Map<HTMLElement, Position>());
     scrollContainer.addEventListener("scroll", scrollF);
   }
+
+  containerPositions.get(container)!.set(el, undefined);
 
   const observer = createResizeWatcher(el, container);
   observer.observe(container);
@@ -60,6 +67,8 @@ export function draggable(el: HTMLElement, settings: DragSettingsInput = {}) {
 
     el.removeEventListener("mousedown", startMouseF);
     el.removeEventListener("touchstart", startTouchF);
+
+    containerPositions.get(container)!.delete(el);
 
     observer.unobserve(container);
   };
@@ -230,8 +239,7 @@ function move(
   state: DragState,
   settings: DragSettings
 ) {
-  const others = containerDragging.get(settings.container)!;
-  others.set(el, pos);
+  containerPositions.get(settings.container)!.set(el, pos);
 
   let left =
     state.startTranslate[0] +
@@ -272,8 +280,7 @@ function end(el: HTMLElement) {
   const ghost = ghosts.get(el);
   if (ghost) ghost.remove();
 
-  const others = containerDragging.get(settings.container);
-  if (others !== undefined) others.delete(el);
+  containerPositions.get(settings.container)!.set(el, undefined);
 
   onDrop(el);
 }
