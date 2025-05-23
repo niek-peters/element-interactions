@@ -143,11 +143,12 @@ export function endTouch(e: TouchEvent) {
 
   if (singleDragging[0] === el) singleDragging = undefined;
 
+  end(el);
+
   if (dragging.size !== 0) {
     const single = dragging.entries().next().value!;
     singleDragging = [single[0], single[1], draggables.get(single[0])!];
   }
-  end(el);
 }
 
 function start(el: HTMLElement, pos: Position, settings: DragSettings) {
